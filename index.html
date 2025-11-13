@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Model Galerisi</title>
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+            padding: 20px;
+        }
+        
+        h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .models-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 25px;
+            margin-top: 30px;
+        }
+        
+        .model-card {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .model-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 12px rgba(0,0,0,0.15);
+        }
+        
+        .model-preview {
+            width: 100%;
+            height: 350px;
+            background: #f0f0f0;
+            position: relative;
+        }
+        
+        .model-preview model-viewer {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .converting-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(102, 126, 234, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            z-index: 10;
+            border-radius: 15px 15px 0 0;
+        }
+        
+        .converting-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .model-info {
+            padding: 20px;
+        }
+        
+        .model-name {
+            font-size: 1.3em;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+        
+        .model-date {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 15px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #667eea;
+            color: white;
+            width: 100%;
+        }
+        
+        .btn:hover {
+            background: #5568d3;
+        }
+        
+        .loading {
+            text-align: center;
+            color: white;
+            padding: 60px 20px;
+        }
+        
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            color: white;
+            padding: 60px 20px;
+        }
+        
+        .empty-state h2 {
+            font-size: 2.5em;
+            margin-bottom: 15px;
+        }
+        
+        .error-state {
+            background: #ff4444;
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2em;
+            }
+            
+            .models-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎨 3D Model Galerisi</h1>
+            <p class="subtitle">Supabase Storage & Model Viewer</p>
+        </header>
+        
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Modeller yükleniyor...</p>
+        </div>
+        
+        <div id="errorState" class="error-state" style="display: none;"></div>
+        
+        <div id="modelsContainer" class="models-grid"></div>
+        
+        <div id="emptyState" class="empty-state" style="display: none;">
+            <h2>📭 Henüz model yok</h2>
+            <p>iOS uygulamanızdan model yükleyerek başlayın</p>
+        </div>
+    </div>
+    
+    <script>
+        // Supabase yapılandırması
+        const SUPABASE_URL = 'https://zdswozydhmrnvebjtzbk.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpkc3dvenlkaG1ybnZlYmp0emJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwNDYzMDEsImV4cCI6MjA3ODYyMjMwMX0.7aflnUieBEoW36T1F05WylPFNyDSKIt9UnQ0hGKI2_E';
+        const BUCKET_NAME = 'CupScanner';
+        
+        // GLB converter API (ücretsiz alternatifler)
+        // NOT: Bu API'ler rate limit'li olabilir, production için kendi servisinizi kurun
+        const CONVERTER_API = 'https://api.gltf.report/convert'; // Örnek API
+        
+        let models = [];
+        let conversionCache = new Map(); // Dönüştürülmüş modelleri cache'le
+        
+        // Sayfa yüklendiğinde modelleri getir
+        window.addEventListener('DOMContentLoaded', async () => {
+            await loadModels();
+        });
+        
+        // Supabase Storage'dan modelleri yükle
+        async function loadModels() {
+            const loading = document.getElementById('loading');
+            const container = document.getElementById('modelsContainer');
+            const emptyState = document.getElementById('emptyState');
+            const errorState = document.getElementById('errorState');
+            
+            loading.style.display = 'block';
+            container.innerHTML = '';
+            errorState.style.display = 'none';
+            
+            try {
+                const listURL = `${SUPABASE_URL}/storage/v1/object/list/${BUCKET_NAME}?prefix=&limit=100`;
+                
+                console.log('Modeller yükleniyor...', listURL);
+                
+                const response = await fetch(listURL, {
+                    method: 'GET',
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+                
+                let files = await response.json();
+                
+                // Response format kontrolü
+                if (files && typeof files === 'object' && !Array.isArray(files)) {
+                    files = files.objects || [];
+                }
+                
+                if (!files || files.length === 0) {
+                    emptyState.style.display = 'block';
+                    loading.style.display = 'none';
+                    return;
+                }
+                
+                emptyState.style.display = 'none';
+                loading.style.display = 'none';
+                
+                // Her dosya için model kartı oluştur
+                for (const file of files) {
+                    const fileName = file.name || file.path || '';
+                    const filePath = file.path || file.name || '';
+                    
+                    // Sadece 3D model dosyalarını göster
+                    if (!fileName.toLowerCase().match(/\.(usdz|glb|gltf)$/i)) {
+                        continue;
+                    }
+                    
+                    const actualFileName = filePath.split('/').pop() || fileName;
+                    const publicURL = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/${filePath || actualFileName}`;
+                    const viewURL = `view.html?id=${encodeURIComponent(actualFileName)}&url=${encodeURIComponent(publicURL)}`;
+                    const isUSDZ = actualFileName.toLowerCase().endsWith('.usdz');
+                    
+                    // Model kartı oluştur
+                    await createModelCard(container, {
+                        fileName: actualFileName,
+                        publicURL,
+                        viewURL,
+                        isUSDZ,
+                        createdAt: file.created_at || file.updated_at
+                    });
+                }
+                
+            } catch (error) {
+                console.error('Model yükleme hatası:', error);
+                loading.style.display = 'none';
+                errorState.textContent = `Hata: ${error.message}`;
+                errorState.style.display = 'block';
+            }
+        }
+        
+        // Model kartı oluştur
+        async function createModelCard(container, model) {
+            const card = document.createElement('div');
+            card.className = 'model-card';
+            card.onclick = () => window.location.href = model.viewURL;
+            
+            let modelSrc = model.publicURL;
+            let isConverting = false;
+            
+            // USDZ ise GLB'ye çevir
+            if (model.isUSDZ) {
+                // Cache'den kontrol et
+                if (conversionCache.has(model.publicURL)) {
+                    modelSrc = conversionCache.get(model.publicURL);
+                } else {
+                    isConverting = true;
+                    card.innerHTML = `
+                        <div class="model-preview">
+                            <div class="converting-overlay">
+                                <div class="converting-spinner"></div>
+                                <p>GLB'ye çevriliyor...</p>
+                            </div>
+                        </div>
+                        <div class="model-info">
+                            <div class="model-name">${escapeHtml(model.fileName.replace(/\.(usdz|glb|gltf)$/i, ''))}</div>
+                            <div class="model-date">${formatDate(model.createdAt)}</div>
+                            <button class="btn" onclick="event.stopPropagation(); window.location.href='${model.viewURL}'">
+                                Detaylı Görüntüle
+                            </button>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                    
+                    try {
+                        // USDZ'yi GLB'ye çevir
+                        const glbBlob = await convertUSDZToGLB(model.publicURL);
+                        const glbURL = URL.createObjectURL(glbBlob);
+                        conversionCache.set(model.publicURL, glbURL);
+                        modelSrc = glbURL;
+                        isConverting = false;
+                    } catch (error) {
+                        console.warn('GLB conversion başarısız, USDZ kullanılıyor:', error);
+                        isConverting = false;
+                        // USDZ'yi direkt kullan
+                    }
+                }
+            }
+            
+            // Final model kartı
+            if (!isConverting) {
+                card.innerHTML = `
+                    <div class="model-preview">
+                        <model-viewer
+                            src="${modelSrc}"
+                            alt="${escapeHtml(model.fileName)}"
+                            camera-controls
+                            auto-rotate
+                            interaction-policy="allow-when-focused"
+                            style="width: 100%; height: 100%;"
+                            loading="lazy"
+                            exposure="1.0"
+                            shadow-intensity="1">
+                        </model-viewer>
+                    </div>
+                    <div class="model-info">
+                        <div class="model-name">${escapeHtml(model.fileName.replace(/\.(usdz|glb|gltf)$/i, ''))}</div>
+                        <div class="model-date">${formatDate(model.createdAt)}</div>
+                        <button class="btn" onclick="event.stopPropagation(); window.location.href='${model.viewURL}'">
+                            Detaylı Görüntüle
+                        </button>
+                    </div>
+                `;
+                
+                if (!card.parentNode) {
+                    container.appendChild(card);
+                } else {
+                    // Update existing card
+                    const oldCard = container.querySelector(`[data-model-id="${model.fileName}"]`);
+                    if (oldCard) {
+                        oldCard.replaceWith(card);
+                    }
+                }
+            }
+        }
+        
+        // USDZ'yi GLB'ye çevir
+        async function convertUSDZToGLB(usdzURL) {
+            console.log('USDZ -> GLB dönüşümü başlatılıyor:', usdzURL);
+            
+            // Önce USDZ dosyasını indir
+            const response = await fetch(usdzURL);
+            if (!response.ok) {
+                throw new Error('USDZ dosyası indirilemedi');
+            }
+            
+            const blob = await response.blob();
+            
+            // FormData oluştur
+            const formData = new FormData();
+            formData.append('file', blob, 'model.usdz');
+            formData.append('outputFormat', 'glb');
+            
+            // Online converter API'ye gönder
+            // NOT: Bu örnek API, gerçek endpoint'i değiştirmeniz gerekebilir
+            // Alternatif: https://products.aspose.app/3d/conversion/usdz-to-glb
+            // veya kendi conversion servisinizi kullanın
+            
+            try {
+                const convertResponse = await fetch(CONVERTER_API, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!convertResponse.ok) {
+                    throw new Error('Conversion API hatası: ' + convertResponse.statusText);
+                }
+                
+                const glbBlob = await convertResponse.blob();
+                console.log('GLB dönüşümü başarılı');
+                return glbBlob;
+                
+            } catch (error) {
+                // Online converter başarısız, alternatif dene
+                console.warn('Converter API hatası, alternatif deneniyor:', error);
+                
+                // Alternatif: USDZ'yi direkt kullan (iOS Safari'de çalışır)
+                throw error;
+            }
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function formatDate(dateString) {
+            if (!dateString) return 'Tarih bilgisi yok';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('tr-TR', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Model Görüntüleyici</title>
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .back-link {
+            display: inline-block;
+            color: white;
+            text-decoration: none;
+            margin-bottom: 20px;
+            font-size: 1.1em;
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .back-link:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        .header {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.2em;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .model-info {
+            color: #666;
+            font-size: 1em;
+        }
+        
+        .viewer-container {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        model-viewer {
+            width: 100%;
+            height: 70vh;
+            min-height: 600px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+            color: #667eea;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        button:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        .converting-overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            bottom: 20px;
+            background: rgba(102, 126, 234, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            border-radius: 10px;
+            z-index: 10;
+        }
+        
+        .converting-spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid rgba(255,255,255,0.3);
+            border-top: 5px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error {
+            background: #ff4444;
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            model-viewer {
+                height: 50vh;
+                min-height: 400px;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+            
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">← Geri Dön</a>
+        
+        <div class="header">
+            <h1 id="modelName">3D Model</h1>
+            <div class="model-info" id="modelDate"></div>
+        </div>
+        
+        <div id="error" class="error" style="display: none;"></div>
+        
+        <div class="viewer-container" style="position: relative;">
+            <div id="convertingOverlay" class="converting-overlay" style="display: none;">
+                <div class="converting-spinner"></div>
+                <h3>GLB'ye Çevriliyor...</h3>
+                <p style="margin-top: 10px; opacity: 0.9;">USDZ formatı GLB formatına dönüştürülüyor</p>
+            </div>
+            
+            <model-viewer
+                id="modelViewer"
+                alt="3D Model"
+                auto-rotate
+                camera-controls
+                ar
+                ar-modes="webxr scene-viewer quick-look"
+                shadow-intensity="1"
+                environment-image="neutral"
+                exposure="1.0"
+                interaction-policy="allow-when-focused"
+                loading="lazy"
+                min-camera-orbit="auto auto 0.5m"
+                max-camera-orbit="auto auto 10m"
+                camera-target="auto auto auto"
+                field-of-view="30deg">
+                
+                <div slot="poster" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2em;">
+                    Model Yükleniyor...
+                </div>
+            </model-viewer>
+        </div>
+        
+        <div class="controls">
+            <button onclick="resetCamera()">📐 Kamerayı Sıfırla</button>
+            <button onclick="toggleAutoRotate()" id="rotateBtn">⏸️ Otomatik Döndür</button>
+            <button onclick="zoomIn()">🔍 Yakınlaştır</button>
+            <button onclick="zoomOut()">🔎 Uzaklaştır</button>
+            <button onclick="openAR()">📱 AR'da Aç</button>
+        </div>
+    </div>
+    
+    <script>
+        // URL'den parametreleri al
+        const urlParams = new URLSearchParams(window.location.search);
+        const modelId = urlParams.get('id');
+        const modelURL = urlParams.get('url');
+        
+        // Supabase yapılandırması
+        const SUPABASE_URL = 'https://zdswozydhmrnvebjtzbk.supabase.co';
+        const BUCKET_NAME = 'CupScanner';
+        
+        let autoRotate = true;
+        let currentZoom = 1.0;
+        const viewer = document.getElementById('modelViewer');
+        const convertingOverlay = document.getElementById('convertingOverlay');
+        
+        // Model yükle
+        async function loadModel() {
+            if (!modelURL && !modelId) {
+                showError('Model URL veya ID bulunamadı!');
+                return;
+            }
+            
+            try {
+                let finalURL = modelURL;
+                
+                // Eğer URL yoksa, ID'den Supabase URL'i oluştur
+                if (!finalURL && modelId) {
+                    // Önce GLB'yi dene, yoksa USDZ'yi kullan
+                    const glbURL = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/${modelId}.glb`;
+                    const usdzURL = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/${modelId}.usdz`;
+                    
+                    try {
+                        const glbCheck = await fetch(glbURL, { method: 'HEAD' });
+                        if (glbCheck.ok) {
+                            finalURL = glbURL;
+                            console.log('GLB dosyası bulundu');
+                        } else {
+                            finalURL = usdzURL;
+                            console.log('GLB bulunamadı, USDZ kullanılıyor');
+                        }
+                    } catch {
+                        finalURL = usdzURL;
+                    }
+                }
+                
+                if (!finalURL) {
+                    throw new Error('Model URL\'si oluşturulamadı');
+                }
+                
+                // USDZ ise GLB'ye çevir
+                const isUSDZ = finalURL.toLowerCase().endsWith('.usdz');
+                
+                if (isUSDZ) {
+                    convertingOverlay.style.display = 'flex';
+                    
+                    try {
+                        finalURL = await convertAndLoadGLB(finalURL);
+                        console.log('Model GLB formatında yüklendi');
+                    } catch (error) {
+                        console.warn('GLB conversion başarısız, USDZ kullanılıyor:', error);
+                        // USDZ'yi direkt kullan (iOS Safari'de çalışır)
+                    } finally {
+                        convertingOverlay.style.display = 'none';
+                    }
+                }
+                
+                viewer.src = finalURL;
+                viewer.alt = modelId ? modelId.replace(/_/g, ' ') : '3D Model';
+                
+                document.getElementById('modelName').textContent = modelId ? modelId.replace(/_/g, ' ').replace(/\.(usdz|glb|gltf)$/i, '') : '3D Model';
+                document.getElementById('modelDate').textContent = 'Yüklenme: ' + new Date().toLocaleDateString('tr-TR');
+                
+                console.log('Model başarıyla yüklendi:', finalURL);
+                
+            } catch (error) {
+                console.error('Model yükleme hatası:', error);
+                showError('Model yüklenirken bir hata oluştu: ' + error.message);
+            }
+        }
+        
+        // USDZ'yi GLB'ye çevir ve yükle
+        async function convertAndLoadGLB(usdzURL) {
+            console.log('USDZ -> GLB dönüşümü başlatılıyor:', usdzURL);
+            
+            // USDZ dosyasını indir
+            const response = await fetch(usdzURL);
+            if (!response.ok) {
+                throw new Error('USDZ dosyası indirilemedi');
+            }
+            
+            const blob = await response.blob();
+            
+            // FormData oluştur
+            const formData = new FormData();
+            formData.append('file', blob, 'model.usdz');
+            formData.append('outputFormat', 'glb');
+            
+            // Online converter API'ye gönder
+            // NOT: Bu örnek API, gerçek endpoint'i değiştirmeniz gerekebilir
+            const CONVERTER_API = 'https://api.gltf.report/convert';
+            
+            try {
+                const convertResponse = await fetch(CONVERTER_API, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!convertResponse.ok) {
+                    throw new Error('Conversion API hatası: ' + convertResponse.statusText);
+                }
+                
+                const glbBlob = await convertResponse.blob();
+                const glbURL = URL.createObjectURL(glbBlob);
+                
+                console.log('GLB dönüşümü başarılı');
+                return glbURL;
+                
+            } catch (error) {
+                // Online converter başarısız
+                throw error;
+            }
+        }
+        
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+        
+        function resetCamera() {
+            viewer.resetTurntableRotation();
+            viewer.cameraTarget = 'auto auto auto';
+            currentZoom = 1.0;
+        }
+        
+        function toggleAutoRotate() {
+            autoRotate = !autoRotate;
+            viewer.autoRotate = autoRotate;
+            document.getElementById('rotateBtn').textContent = autoRotate ? '⏸️ Otomatik Döndür' : '▶️ Otomatik Döndür';
+        }
+        
+        function zoomIn() {
+            currentZoom = Math.max(0.1, currentZoom - 0.2);
+            applyZoom();
+        }
+        
+        function zoomOut() {
+            currentZoom = Math.min(3.0, currentZoom + 0.2);
+            applyZoom();
+        }
+        
+        function applyZoom() {
+            // Model-viewer'ın field-of-view'unu değiştirerek zoom efekti
+            viewer.fieldOfView = `${30 / currentZoom}deg`;
+        }
+        
+        function openAR() {
+            viewer.activateAR();
+        }
+        
+        // Sayfa yüklendiğinde modeli yükle
+        window.addEventListener('DOMContentLoaded', loadModel);
+    </script>
+</body>
+</html>
+
