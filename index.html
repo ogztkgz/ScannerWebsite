@@ -213,10 +213,9 @@
         // Supabase yapılandırması
         const SUPABASE_URL = 'https://zdswozydhmrnvebjtzbk.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpkc3dvenlkaG1ybnZlYmp0emJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwNDYzMDEsImV4cCI6MjA3ODYyMjMwMX0.7aflnUieBEoW36T1F05WylPFNyDSKIt9UnQ0hGKI2_E';
-        const BUCKET_NAME = 'cupscanner';
+        const BUCKET_NAME = 'cupscanner';   // Supabase'deki yeni küçük harfli bucket adı
         
-        // GLB converter API (ücretsiz alternatifler)
-        // NOT: Bu API'ler rate limit'li olabilir, production için kendi servisinizi kurun
+        // GLB converter API (isteğe bağlı)
         const CONVERTER_API = 'https://api.gltf.report/convert'; // Örnek API
         
         let models = [];
@@ -239,16 +238,24 @@
             errorState.style.display = 'none';
             
             try {
-                const listURL = `${SUPABASE_URL}/storage/v1/object/list/${BUCKET_NAME}?prefix=&limit=100`;
+                // Supabase Storage list endpoint (POST + JSON body)
+                const listURL = `${SUPABASE_URL}/storage/v1/object/list/${BUCKET_NAME}`;
                 
                 console.log('Modeller yükleniyor...', listURL);
                 
                 const response = await fetch(listURL, {
-                    method: 'GET',
+                    method: 'POST',
                     headers: {
                         'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                    }
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        prefix: '',      // kök dizin
+                        limit: 100,
+                        offset: 0,
+                        sortBy: { column: 'name', order: 'asc' }
+                    })
                 });
                 
                 if (!response.ok) {
@@ -258,7 +265,7 @@
                 
                 let files = await response.json();
                 
-                // Response format kontrolü
+                // Bazı client'larda { objects: [...] } şeklinde gelebilir, o yüzden kontrol edelim
                 if (files && typeof files === 'object' && !Array.isArray(files)) {
                     files = files.objects || [];
                 }
@@ -339,7 +346,6 @@
                     container.appendChild(card);
                     
                     try {
-                        // USDZ'yi GLB'ye çevir
                         const glbBlob = await convertUSDZToGLB(model.publicURL);
                         const glbURL = URL.createObjectURL(glbBlob);
                         conversionCache.set(model.publicURL, glbURL);
@@ -348,7 +354,7 @@
                     } catch (error) {
                         console.warn('GLB conversion başarısız, USDZ kullanılıyor:', error);
                         isConverting = false;
-                        // USDZ'yi direkt kullan
+                        // USDZ direkt kullanılacak
                     }
                 }
             }
@@ -381,7 +387,6 @@
                 if (!card.parentNode) {
                     container.appendChild(card);
                 } else {
-                    // Update existing card
                     const oldCard = container.querySelector(`[data-model-id="${model.fileName}"]`);
                     if (oldCard) {
                         oldCard.replaceWith(card);
@@ -394,7 +399,6 @@
         async function convertUSDZToGLB(usdzURL) {
             console.log('USDZ -> GLB dönüşümü başlatılıyor:', usdzURL);
             
-            // Önce USDZ dosyasını indir
             const response = await fetch(usdzURL);
             if (!response.ok) {
                 throw new Error('USDZ dosyası indirilemedi');
@@ -402,37 +406,22 @@
             
             const blob = await response.blob();
             
-            // FormData oluştur
             const formData = new FormData();
             formData.append('file', blob, 'model.usdz');
             formData.append('outputFormat', 'glb');
             
-            // Online converter API'ye gönder
-            // NOT: Bu örnek API, gerçek endpoint'i değiştirmeniz gerekebilir
-            // Alternatif: https://products.aspose.app/3d/conversion/usdz-to-glb
-            // veya kendi conversion servisinizi kullanın
+            const convertResponse = await fetch(CONVERTER_API, {
+                method: 'POST',
+                body: formData
+            });
             
-            try {
-                const convertResponse = await fetch(CONVERTER_API, {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                if (!convertResponse.ok) {
-                    throw new Error('Conversion API hatası: ' + convertResponse.statusText);
-                }
-                
-                const glbBlob = await convertResponse.blob();
-                console.log('GLB dönüşümü başarılı');
-                return glbBlob;
-                
-            } catch (error) {
-                // Online converter başarısız, alternatif dene
-                console.warn('Converter API hatası, alternatif deneniyor:', error);
-                
-                // Alternatif: USDZ'yi direkt kullan (iOS Safari'de çalışır)
-                throw error;
+            if (!convertResponse.ok) {
+                throw new Error('Conversion API hatası: ' + convertResponse.statusText);
             }
+            
+            const glbBlob = await convertResponse.blob();
+            console.log('GLB dönüşümü başarılı');
+            return glbBlob;
         }
         
         function escapeHtml(text) {
@@ -455,4 +444,3 @@
     </script>
 </body>
 </html>
-
