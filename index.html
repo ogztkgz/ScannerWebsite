@@ -289,10 +289,37 @@
                         continue;
                     }
                     
-                    const actualFileName = filePath.split('/').pop() || fileName;
-                    const publicURL = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/${filePath || actualFileName}`;
+                    // Dosya adını ve path'i belirle
+                    let actualFileName = fileName;
+                    let storagePath = filePath;
+                    
+                    // Eğer filePath varsa ve farklıysa, onu kullan
+                    if (filePath && filePath !== fileName) {
+                        storagePath = filePath;
+                        actualFileName = filePath.split('/').pop() || fileName;
+                    } else if (filePath) {
+                        // filePath varsa ama aynıysa, direkt kullan
+                        storagePath = filePath;
+                        actualFileName = filePath.split('/').pop() || fileName;
+                    } else {
+                        // Sadece fileName varsa
+                        storagePath = fileName;
+                        actualFileName = fileName;
+                    }
+                    
+                    // Public URL oluştur - storagePath kullan (tam path)
+                    const publicURL = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/${storagePath}`;
+                    
+                    // View URL oluştur - hem id hem de url parametresi gönder
                     const viewURL = `view.html?id=${encodeURIComponent(actualFileName)}&url=${encodeURIComponent(publicURL)}`;
                     const isUSDZ = actualFileName.toLowerCase().endsWith('.usdz');
+                    
+                    console.log('Model bulundu:', {
+                        fileName: actualFileName,
+                        storagePath: storagePath,
+                        publicURL: publicURL,
+                        isUSDZ: isUSDZ
+                    });
                     
                     // Model kartı oluştur
                     await createModelCard(container, {
