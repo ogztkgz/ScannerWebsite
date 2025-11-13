@@ -5,6 +5,63 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3D Model Görüntüleyici</title>
     <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
+    <script nomodule>
+        // Eski tarayıcılar için fallback
+        console.warn('Bu tarayıcı ES6 modülleri desteklemiyor. Model-viewer yüklenemeyebilir.');
+    </script>
+    <script>
+        // Model-viewer yükleme kontrolü ve hata yakalama
+        let modelViewerLoadTimeout;
+        
+        // Script yükleme hatası kontrolü
+        window.addEventListener('error', (event) => {
+            if (event.target && event.target.src && event.target.src.includes('model-viewer')) {
+                console.error('Model-viewer script yüklenirken hata:', event);
+                const errorDiv = document.getElementById('error');
+                if (errorDiv) {
+                    errorDiv.textContent = '3D görüntüleyici yüklenemedi. İnternet bağlantınızı kontrol edin veya sayfayı yenileyin.';
+                    errorDiv.style.display = 'block';
+                }
+            }
+        }, true);
+        
+        // Model-viewer yükleme kontrolü
+        window.addEventListener('load', () => {
+            console.log('Window loaded');
+            console.log('Custom elements registry:', customElements);
+            
+            // Timeout ekle (10 saniye içinde yüklenmezse hata göster)
+            modelViewerLoadTimeout = setTimeout(() => {
+                if (!customElements.get('model-viewer')) {
+                    console.error('model-viewer 10 saniye içinde yüklenemedi');
+                    const errorDiv = document.getElementById('error');
+                    if (errorDiv) {
+                        errorDiv.textContent = '3D görüntüleyici yüklenemedi. Lütfen sayfayı yenileyin veya farklı bir tarayıcı deneyin.';
+                        errorDiv.style.display = 'block';
+                    }
+                }
+            }, 10000);
+            
+            if (customElements.get('model-viewer')) {
+                console.log('model-viewer custom element tanımlı');
+                clearTimeout(modelViewerLoadTimeout);
+            } else {
+                console.warn('model-viewer custom element henüz tanımlı değil, bekleniyor...');
+                customElements.whenDefined('model-viewer').then(() => {
+                    console.log('model-viewer custom element tanımlandı');
+                    clearTimeout(modelViewerLoadTimeout);
+                }).catch((error) => {
+                    console.error('model-viewer yüklenemedi:', error);
+                    clearTimeout(modelViewerLoadTimeout);
+                    const errorDiv = document.getElementById('error');
+                    if (errorDiv) {
+                        errorDiv.textContent = '3D görüntüleyici yüklenemedi: ' + error.message;
+                        errorDiv.style.display = 'block';
+                    }
+                });
+            }
+        });
+    </script>
     <style>
         * {
             margin: 0;
@@ -252,6 +309,28 @@
             console.log('loadModel çağrıldı');
             console.log('modelId:', modelId);
             console.log('modelURL:', modelURL);
+            console.log('viewer element:', viewer);
+            console.log('customElements.get(model-viewer):', customElements.get('model-viewer'));
+            
+            // Viewer element kontrolü
+            if (!viewer) {
+                console.error('Model viewer elementi bulunamadı!');
+                showError('3D görüntüleyici yüklenemedi. Lütfen sayfayı yenileyin.');
+                return;
+            }
+            
+            // Model-viewer custom element kontrolü
+            if (!customElements.get('model-viewer')) {
+                console.warn('model-viewer custom element henüz tanımlı değil, bekleniyor...');
+                try {
+                    await customElements.whenDefined('model-viewer');
+                    console.log('model-viewer custom element tanımlandı, devam ediliyor...');
+                } catch (error) {
+                    console.error('model-viewer yüklenemedi:', error);
+                    showError('3D görüntüleyici yüklenemedi. Lütfen sayfayı yenileyin.');
+                    return;
+                }
+            }
             
             if (!modelURL && !modelId) {
                 showError('Model URL veya ID bulunamadı!');
@@ -262,42 +341,81 @@
             errorDiv.style.display = 'none';
             
             try {
-                let finalURL = modelURL;
+                let finalURL = null;
                 
-                // Eğer URL yoksa, ID'den Supabase URL'i oluştur
-                if (!finalURL && modelId) {
-                    // Önce GLB'yi dene, yoksa USDZ'yi kullan
-                    const glbURL = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/${modelId}`;
-                    const usdzURL = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/${modelId}`;
-                    
-                    // Eğer modelId'de extension yoksa, her ikisini de dene
-                    if (!modelId.includes('.')) {
-                        const glbCheck = await fetch(`${glbURL}.glb`, { method: 'HEAD' }).catch(() => null);
-                        if (glbCheck && glbCheck.ok) {
-                            finalURL = `${glbURL}.glb`;
-                            console.log('GLB dosyası bulundu');
-                        } else {
-                            const usdzCheck = await fetch(`${usdzURL}.usdz`, { method: 'HEAD' }).catch(() => null);
-                            if (usdzCheck && usdzCheck.ok) {
-                                finalURL = `${usdzURL}.usdz`;
-                                console.log('USDZ dosyası bulundu');
-                            }
-                        }
-                    } else {
-                        finalURL = glbURL;
+                // Önce modelURL'i kontrol et (varsa direkt kullan)
+                if (modelURL) {
+                    try {
+                        // URL decode et
+                        finalURL = decodeURIComponent(modelURL);
+                        console.log('modelURL kullanılıyor:', finalURL);
+                    } catch (e) {
+                        // Decode başarısız olursa orijinal URL'i kullan
+                        finalURL = modelURL;
+                        console.log('modelURL decode edilemedi, orijinal kullanılıyor:', finalURL);
                     }
                 }
                 
-                // URL decode et
-                if (finalURL) {
-                    finalURL = decodeURIComponent(finalURL);
+                // Eğer URL yoksa, ID'den Supabase URL'i oluştur
+                if (!finalURL && modelId) {
+                    const decodedModelId = decodeURIComponent(modelId);
+                    console.log('modelId kullanılarak URL oluşturuluyor:', decodedModelId);
+                    
+                    // Eğer modelId'de extension varsa direkt kullan
+                    if (decodedModelId.includes('.')) {
+                        finalURL = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/${decodedModelId}`;
+                        console.log('Extension ile URL oluşturuldu:', finalURL);
+                    } else {
+                        // Extension yoksa, önce GLB'yi dene, yoksa USDZ'yi kullan
+                        const glbURL = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/${decodedModelId}.glb`;
+                        const usdzURL = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/${decodedModelId}.usdz`;
+                        
+                        console.log('GLB kontrol ediliyor:', glbURL);
+                        const glbCheck = await fetch(glbURL, { method: 'HEAD' }).catch(() => null);
+                        if (glbCheck && glbCheck.ok) {
+                            finalURL = glbURL;
+                            console.log('GLB dosyası bulundu');
+                        } else {
+                            console.log('USDZ kontrol ediliyor:', usdzURL);
+                            const usdzCheck = await fetch(usdzURL, { method: 'HEAD' }).catch(() => null);
+                            if (usdzCheck && usdzCheck.ok) {
+                                finalURL = usdzURL;
+                                console.log('USDZ dosyası bulundu');
+                            }
+                        }
+                    }
                 }
                 
                 if (!finalURL) {
-                    throw new Error('Model URL\'si oluşturulamadı');
+                    throw new Error('Model URL\'si oluşturulamadı. Model bulunamadı.');
                 }
                 
                 console.log('Final URL:', finalURL);
+                
+                // URL'in erişilebilir olduğunu kontrol et
+                let urlCheck = null;
+                try {
+                    urlCheck = await fetch(finalURL, { 
+                        method: 'HEAD',
+                        mode: 'cors',
+                        cache: 'no-cache'
+                    });
+                } catch (fetchError) {
+                    console.error('URL kontrol hatası:', fetchError);
+                    // CORS hatası olabilir, yine de modeli yüklemeyi dene
+                    if (fetchError.name === 'TypeError' && fetchError.message.includes('CORS')) {
+                        console.warn('CORS hatası tespit edildi, model yüklenmeye çalışılacak');
+                    } else {
+                        throw new Error('Model dosyasına erişilemiyor: ' + fetchError.message);
+                    }
+                }
+                
+                if (urlCheck && !urlCheck.ok) {
+                    const errorText = urlCheck.status === 404 ? 'Model dosyası bulunamadı (404)' : 
+                                    urlCheck.status === 403 ? 'Model dosyasına erişim izni yok (403)' :
+                                    `HTTP ${urlCheck.status}: ${urlCheck.statusText}`;
+                    throw new Error(errorText);
+                }
                 
                 // USDZ ise GLB'ye çevir
                 const isUSDZ = finalURL.toLowerCase().endsWith('.usdz');
@@ -306,37 +424,88 @@
                     convertingOverlay.style.display = 'flex';
                     
                     try {
-                        finalURL = await convertAndLoadGLB(finalURL);
-                        console.log('Model GLB formatında yüklendi');
+                        const convertedURL = await convertAndLoadGLB(finalURL);
+                        if (convertedURL && convertedURL !== finalURL) {
+                            finalURL = convertedURL;
+                            console.log('Model GLB formatında yüklendi');
+                        } else {
+                            throw new Error('USDZ\'den GLB\'ye dönüştürme başarısız oldu. Model-viewer USDZ formatını desteklemiyor.');
+                        }
                     } catch (error) {
-                        console.warn('GLB conversion başarısız, USDZ kullanılıyor:', error);
-                        // USDZ'yi direkt kullan (iOS Safari'de çalışır)
+                        console.error('GLB conversion hatası:', error);
+                        throw new Error('USDZ model GLB formatına dönüştürülemedi. Lütfen GLB formatında bir model yükleyin.');
                     } finally {
                         convertingOverlay.style.display = 'none';
                     }
                 }
                 
-                viewer.src = finalURL;
-                viewer.alt = modelId ? modelId.replace(/_/g, ' ') : '3D Model';
+                // Model viewer'a yükle
+                console.log('Model viewer\'a yükleniyor:', finalURL);
+                console.log('Viewer element:', viewer);
+                console.log('Viewer tagName:', viewer.tagName);
                 
-                const modelName = modelId ? modelId.replace(/_/g, ' ').replace(/\.(usdz|glb|gltf)$/i, '') : '3D Model';
+                // Viewer'ın src özelliğini kontrol et
+                if (!viewer.hasAttribute('src')) {
+                    console.log('Viewer\'a src attribute ekleniyor');
+                }
+                
+                viewer.src = finalURL;
+                viewer.alt = modelId ? decodeURIComponent(modelId).replace(/_/g, ' ') : '3D Model';
+                
+                const modelName = modelId ? decodeURIComponent(modelId).replace(/_/g, ' ').replace(/\.(usdz|glb|gltf)$/i, '') : '3D Model';
                 document.getElementById('modelName').textContent = modelName;
                 document.getElementById('modelDate').textContent = 'Yüklenme: ' + new Date().toLocaleDateString('tr-TR');
                 
-                loadingDiv.style.display = 'none';
-                console.log('Model başarıyla yüklendi:', finalURL);
+                console.log('Model viewer src ayarlandı:', viewer.src);
                 
                 // Model yüklendiğinde event listener ekle
-                viewer.addEventListener('load', () => {
+                let loadTimeout;
+                let errorOccurred = false;
+                
+                const loadHandler = () => {
                     console.log('Model viewer\'da model yüklendi');
                     loadingDiv.style.display = 'none';
-                });
+                    clearTimeout(loadTimeout);
+                    viewer.removeEventListener('load', loadHandler);
+                    viewer.removeEventListener('error', errorHandler);
+                };
                 
-                viewer.addEventListener('error', (e) => {
+                const errorHandler = (e) => {
+                    if (errorOccurred) return; // Tekrar hata gösterme
+                    errorOccurred = true;
                     console.error('Model yükleme hatası:', e);
-                    showError('Model yüklenirken bir hata oluştu. Lütfen tekrar deneyin.');
+                    console.error('Error details:', {
+                        type: e.type,
+                        target: e.target,
+                        message: e.message || 'Bilinmeyen hata'
+                    });
+                    
+                    // Daha detaylı hata mesajı
+                    let errorMessage = 'Model yüklenirken bir hata oluştu.';
+                    if (finalURL.toLowerCase().endsWith('.usdz')) {
+                        errorMessage += ' USDZ formatı web tarayıcılarında desteklenmiyor. Lütfen GLB formatında bir model yükleyin.';
+                    } else {
+                        errorMessage += ' Model formatı desteklenmiyor olabilir veya dosya bozuk olabilir.';
+                    }
+                    
+                    showError(errorMessage);
                     loadingDiv.style.display = 'none';
-                });
+                    clearTimeout(loadTimeout);
+                    viewer.removeEventListener('load', loadHandler);
+                    viewer.removeEventListener('error', errorHandler);
+                };
+                
+                viewer.addEventListener('load', loadHandler);
+                viewer.addEventListener('error', errorHandler);
+                
+                // Timeout ekle (30 saniye sonra hata göster)
+                loadTimeout = setTimeout(() => {
+                    if (loadingDiv.style.display !== 'none' && !errorOccurred) {
+                        console.warn('Model yükleme timeout');
+                        showError('Model yükleme çok uzun sürüyor. İnternet bağlantınızı kontrol edin veya model dosyasının geçerli olduğundan emin olun.');
+                        loadingDiv.style.display = 'none';
+                    }
+                }, 30000);
                 
             } catch (error) {
                 console.error('Model yükleme hatası:', error);
@@ -352,41 +521,67 @@
             // USDZ dosyasını indir
             const response = await fetch(usdzURL);
             if (!response.ok) {
-                throw new Error('USDZ dosyası indirilemedi');
+                throw new Error('USDZ dosyası indirilemedi: ' + response.statusText);
             }
             
             const blob = await response.blob();
+            console.log('USDZ dosyası indirildi, boyut:', blob.size, 'bytes');
             
             // FormData oluştur
             const formData = new FormData();
             formData.append('file', blob, 'model.usdz');
             formData.append('outputFormat', 'glb');
             
-            // Online converter API'ye gönder
-            // NOT: Bu örnek API, gerçek endpoint'i değiştirmeniz gerekebilir
-            const CONVERTER_API = 'https://api.gltf.report/convert';
+            // Alternatif converter API'ler
+            const CONVERTER_APIS = [
+                'https://api.gltf.report/convert',
+                'https://products.aspose.app/3d/conversion/usdz-to-glb',
+                // Daha fazla alternatif eklenebilir
+            ];
             
-            try {
-                const convertResponse = await fetch(CONVERTER_API, {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                if (!convertResponse.ok) {
-                    throw new Error('Conversion API hatası: ' + convertResponse.statusText);
+            let lastError = null;
+            
+            // Her API'yi sırayla dene
+            for (const CONVERTER_API of CONVERTER_APIS) {
+                try {
+                    console.log('Converter API deneniyor:', CONVERTER_API);
+                    
+                    const convertResponse = await fetch(CONVERTER_API, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            // Bazı API'ler için gerekli olabilir
+                        }
+                    });
+                    
+                    if (!convertResponse.ok) {
+                        throw new Error('Conversion API hatası: ' + convertResponse.statusText + ' (Status: ' + convertResponse.status + ')');
+                    }
+                    
+                    const contentType = convertResponse.headers.get('content-type');
+                    console.log('Response content-type:', contentType);
+                    
+                    const glbBlob = await convertResponse.blob();
+                    
+                    if (glbBlob.size === 0) {
+                        throw new Error('Dönüştürülen dosya boş');
+                    }
+                    
+                    console.log('GLB dönüşümü başarılı, boyut:', glbBlob.size, 'bytes');
+                    const glbURL = URL.createObjectURL(glbBlob);
+                    
+                    return glbURL;
+                    
+                } catch (error) {
+                    console.warn('Converter API başarısız:', CONVERTER_API, error);
+                    lastError = error;
+                    // Sonraki API'yi dene
+                    continue;
                 }
-                
-                const glbBlob = await convertResponse.blob();
-                const glbURL = URL.createObjectURL(glbBlob);
-                
-                console.log('GLB dönüşümü başarılı');
-                return glbURL;
-                
-            } catch (error) {
-                // Online converter başarısız, USDZ'yi direkt kullan
-                console.warn('Converter başarısız, USDZ kullanılıyor:', error);
-                return usdzURL;
             }
+            
+            // Tüm API'ler başarısız oldu
+            throw new Error('USDZ\'den GLB\'ye dönüştürme başarısız oldu. Tüm converter API\'ler denendi. Hata: ' + (lastError ? lastError.message : 'Bilinmeyen hata'));
         }
         
         function showError(message) {
@@ -426,18 +621,61 @@
             viewer.activateAR();
         }
         
-        // Sayfa yüklendiğinde modeli yükle
-        window.addEventListener('DOMContentLoaded', () => {
-            console.log('DOMContentLoaded event');
-            loadModel();
-        });
-        
-        // Eğer DOMContentLoaded zaten geçtiyse direkt yükle
-        if (document.readyState === 'loading') {
-            window.addEventListener('DOMContentLoaded', loadModel);
-        } else {
-            loadModel();
+        // Model-viewer'ın yüklenmesini bekle ve sonra modeli yükle
+        async function initializeModelViewer() {
+            console.log('Model viewer başlatılıyor...');
+            console.log('Document ready state:', document.readyState);
+            
+            // Model-viewer custom element'inin tanımlanmasını bekle
+            try {
+                if (!customElements.get('model-viewer')) {
+                    console.log('model-viewer custom element bekleniyor...');
+                    await customElements.whenDefined('model-viewer');
+                    console.log('model-viewer custom element tanımlandı');
+                } else {
+                    console.log('model-viewer custom element zaten tanımlı');
+                }
+            } catch (error) {
+                console.error('model-viewer yüklenirken hata:', error);
+                showError('3D görüntüleyici yüklenemedi. Lütfen sayfayı yenileyin.');
+                return;
+            }
+            
+            // DOM'un hazır olmasını bekle
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => {
+                    console.log('DOMContentLoaded - model yükleniyor');
+                    loadModel();
+                });
+            } else {
+                console.log('DOM zaten hazır - model yükleniyor');
+                // Kısa bir gecikme ekle (model-viewer'ın tamamen hazır olması için)
+                setTimeout(() => {
+                    loadModel();
+                }, 100);
+            }
         }
+        
+        // Sayfa yüklendiğinde başlat
+        if (document.readyState === 'loading') {
+            window.addEventListener('DOMContentLoaded', initializeModelViewer);
+        } else {
+            initializeModelViewer();
+        }
+        
+        // Window load event'i için de kontrol et
+        window.addEventListener('load', () => {
+            console.log('Window load event');
+            // Eğer model henüz yüklenmediyse tekrar dene
+            if (!viewer.src) {
+                console.log('Model henüz yüklenmemiş, tekrar deneniyor...');
+                setTimeout(() => {
+                    if (!viewer.src) {
+                        loadModel();
+                    }
+                }, 500);
+            }
+        });
     </script>
 </body>
 </html>
