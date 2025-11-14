@@ -1,424 +1,646 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Model Galerisi</title>
-    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
-    <script nomodule src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer-legacy.js"></script>
+    <meta charset="UTF-8" />
+    <title>3D Model Galerisi – Safari / USDZ</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- iOS için tam ekran davranışı -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+
     <style>
+        :root {
+            --bg-gradient: radial-gradient(circle at top, #1f2937 0, #020617 45%, #020617 100%);
+            --card-bg: rgba(15, 23, 42, 0.85);
+            --border-soft: rgba(148, 163, 184, 0.25);
+            --accent: #38bdf8;
+            --accent-soft: rgba(56, 189, 248, 0.25);
+            --text-main: #e5e7eb;
+            --text-muted: #9ca3af;
+            --text-soft: #6b7280;
+            --danger: #f97373;
+            --shadow-soft: 0 24px 60px rgba(15, 23, 42, 0.9);
+            --radius-xl: 24px;
+            --radius-full: 999px;
+        }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            -webkit-font-smoothing: antialiased;
         }
-        
-        .container {
-            max-width: 1400px;
+
+        .page-shell {
+            max-width: 1200px;
             margin: 0 auto;
+            padding: 32px 16px 40px;
         }
-        
-        header {
-            text-align: center;
+
+        @media (min-width: 768px) {
+            .page-shell {
+                padding: 40px 24px 56px;
+            }
+        }
+
+        header.site-header {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            margin-bottom: 32px;
+        }
+
+        @media (min-width: 768px) {
+            header.site-header {
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
+            }
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .brand-logo {
+            width: 42px;
+            height: 42px;
+            border-radius: 16px;
+            background: radial-gradient(circle at 30% 20%, #38bdf8 0, #0ea5e9 30%, #1d4ed8 70%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 16px 40px rgba(8, 47, 73, 0.8);
+        }
+
+        .brand-logo span {
+            font-weight: 700;
+            font-size: 20px;
             color: white;
-            margin-bottom: 40px;
-            padding: 20px;
         }
-        
-        h1 {
-            font-size: 3em;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+
+        .brand-text h1 {
+            font-size: 22px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
         }
-        
-        .subtitle {
-            font-size: 1.2em;
-            opacity: 0.9;
+
+        .brand-text p {
+            font-size: 13px;
+            color: var(--text-soft);
+            margin-top: 4px;
         }
-        
-        .models-grid {
+
+        .meta-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        @media (min-width: 768px) {
+            .meta-panel {
+                align-items: flex-end;
+            }
+        }
+
+        .badge-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            border-radius: var(--radius-full);
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--border-soft);
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .badge-pill-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 999px;
+            background: #22c55e;
+            box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.2);
+        }
+
+        .badge-pill strong {
+            font-weight: 500;
+            color: var(--text-main);
+        }
+
+        .browser-note {
+            font-size: 11px;
+            color: var(--text-soft);
+        }
+
+        /* Safari uyarı banner'ı */
+        .browser-warning {
+            display: none;
+            margin-bottom: 16px;
+            padding: 10px 14px;
+            border-radius: 14px;
+            background: rgba(120, 53, 15, 0.2);
+            border: 1px solid rgba(248, 113, 113, 0.45);
+            color: #fed7aa;
+            font-size: 13px;
+        }
+
+        .browser-warning strong {
+            color: #fed7aa;
+        }
+
+        main {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .panel {
+            border-radius: var(--radius-xl);
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.88));
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            box-shadow: var(--shadow-soft);
+            padding: 20px 18px 20px;
+            backdrop-filter: blur(18px);
+        }
+
+        @media (min-width: 768px) {
+            .panel {
+                padding: 22px 22px 24px;
+            }
+        }
+
+        .panel-header {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 18px;
+        }
+
+        @media (min-width: 640px) {
+            .panel-header {
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
+            }
+        }
+
+        .panel-header-left h2 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .panel-header-left p {
+            font-size: 13px;
+            color: var(--text-soft);
+        }
+
+        .panel-header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .chip {
+            padding: 6px 10px;
+            border-radius: var(--radius-full);
+            font-size: 11px;
+            color: var(--text-muted);
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            background: radial-gradient(circle at 0 0, rgba(56, 189, 248, 0.12), rgba(15, 23, 42, 0.8));
+        }
+
+        .chip strong {
+            color: var(--accent);
+            font-weight: 500;
+        }
+
+        .status-text {
+            font-size: 13px;
+            color: var(--text-soft);
+        }
+
+        .status-text.loading {
+            color: var(--accent);
+        }
+
+        /* Grid */
+        .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 25px;
-            margin-top: 30px;
+            grid-template-columns: 1fr;
+            gap: 16px;
         }
-        
+
+        @media (min-width: 640px) {
+            .grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+
         .model-card {
-            background: white;
-            border-radius: 15px;
-            overflow: hidden;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            cursor: pointer;
-        }
-        
-        .model-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 12px rgba(0,0,0,0.15);
-        }
-        
-        .model-preview {
-            width: 100%;
-            height: 350px;
-            background: #f0f0f0;
             position: relative;
+            overflow: hidden;
+            border-radius: 18px;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            background: radial-gradient(circle at top, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.92));
+            display: flex;
+            flex-direction: column;
         }
-        
-        .model-preview model-viewer {
-            width: 100%;
-            height: 100%;
+
+        .model-card:hover {
+            border-color: rgba(56, 189, 248, 0.6);
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.95);
+            transform: translateY(-1px);
+            transition: all 160ms ease-out;
         }
-        
-        .model-info {
-            padding: 20px;
+
+        .model-card-header {
+            padding: 12px 14px 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
         }
-        
-        .model-name {
-            font-size: 1.3em;
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: #333;
+
+        .model-title {
+            font-size: 14px;
+            font-weight: 500;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
-        
-        .model-date {
-            font-size: 0.9em;
-            color: #666;
-            margin-bottom: 15px;
+
+        .model-meta-badge {
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            background: rgba(15, 118, 110, 0.4);
+            color: #a5f3fc;
         }
-        
-        .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            font-size: 1em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            background: #667eea;
-            color: white;
-            width: 100%;
+
+        .model-thumb {
+            position: relative;
+            padding: 18px 14px 12px;
         }
-        
-        .btn:hover {
-            background: #5568d3;
+
+        .thumb-art {
+            border-radius: 16px;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            background: radial-gradient(circle at 10% 0, rgba(56, 189, 248, 0.3), rgba(15, 23, 42, 0.98));
+            height: 150px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
         }
-        
-        .loading {
-            text-align: center;
-            color: white;
-            padding: 60px 20px;
+
+        @media (min-width: 768px) {
+            .thumb-art {
+                height: 160px;
+            }
         }
-        
-        .spinner {
-            border: 4px solid rgba(255,255,255,0.3);
-            border-top: 4px solid white;
+
+        .thumb-ring {
+            position: absolute;
+            width: 210px;
+            height: 210px;
             border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
+            border: 1px dashed rgba(148, 163, 184, 0.4);
+            transform: rotate(-18deg);
         }
-        
+
+        .thumb-cup {
+            position: relative;
+            width: 70px;
+            height: 90px;
+            border-radius: 40px 40px 18px 18px;
+            background: linear-gradient(160deg, #e5e7eb, #9ca3af);
+            box-shadow:
+                0 20px 35px rgba(15, 23, 42, 0.7),
+                0 0 0 1px rgba(15, 23, 42, 0.9);
+        }
+
+        .thumb-cup::before {
+            content: "";
+            position: absolute;
+            top: 24px;
+            right: -22px;
+            width: 30px;
+            height: 44px;
+            border-radius: 999px;
+            border: 5px solid #e5e7eb;
+            border-left-color: transparent;
+            border-bottom-color: transparent;
+            transform: rotate(20deg);
+            opacity: 0.95;
+        }
+
+        .thumb-base {
+            position: absolute;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90px;
+            height: 8px;
+            border-radius: 999px;
+            background: radial-gradient(circle, rgba(15, 23, 42, 0.3), rgba(15, 23, 42, 0));
+        }
+
+        .thumb-chip {
+            position: absolute;
+            top: 18px;
+            left: 18px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(148, 163, 184, 0.5);
+            font-size: 11px;
+            color: #e5e7eb;
+        }
+
+        .thumb-chip span {
+            color: #bae6fd;
+        }
+
+        .model-card-footer {
+            padding: 0 14px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .model-meta-text {
+            font-size: 11px;
+            color: var(--text-soft);
+        }
+
+        .btn-ar {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 8px 13px;
+            border-radius: 999px;
+            border: none;
+            outline: none;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            letter-spacing: 0.01em;
+            color: #0f172a;
+            background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+            box-shadow:
+                0 10px 25px rgba(8, 47, 73, 0.85),
+                0 0 0 1px rgba(8, 47, 73, 0.7);
+            text-decoration: none;
+        }
+
+        .btn-ar span.icon {
+            width: 16px;
+            height: 16px;
+            border-radius: 6px;
+            border: 1px solid rgba(15, 23, 42, 0.6);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+        }
+
         .empty-state {
-            text-align: center;
-            color: white;
-            padding: 60px 20px;
+            padding: 18px 16px;
+            border-radius: 16px;
+            border: 1px dashed rgba(148, 163, 184, 0.4);
+            background: rgba(15, 23, 42, 0.8);
+            font-size: 13px;
+            color: var(--text-soft);
         }
-        
-        .empty-state h2 {
-            font-size: 2.5em;
-            margin-bottom: 15px;
-        }
-        
-        .error-state {
-            background: #ff4444;
-            color: white;
-            padding: 20px;
-            border-radius: 15px;
-            margin: 20px 0;
-            text-align: center;
-        }
-        
-        @media (max-width: 768px) {
-            h1 {
-                font-size: 2em;
-            }
-            
-            .models-grid {
-                grid-template-columns: 1fr;
-            }
+
+        footer {
+            margin-top: 20px;
+            font-size: 11px;
+            color: var(--text-soft);
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>🎨 3D Model Galerisi</h1>
-            <p class="subtitle">Supabase Storage & Model Viewer</p>
+    <div class="page-shell">
+        <header class="site-header">
+            <div class="brand">
+                <div class="brand-logo">
+                    <span>3D</span>
+                </div>
+                <div class="brand-text">
+                    <h1>Safari USDZ Model Galerisi</h1>
+                    <p>iOS &amp; macOS Safari üzerinde .usdz modellerinizi hızlıca test edin.</p>
+                </div>
+            </div>
+            <div class="meta-panel">
+                <div class="badge-pill">
+                    <span class="badge-pill-dot"></span>
+                    <span><strong>Bağlantı:</strong>&nbsp;Supabase Storage</span>
+                </div>
+                <div class="browser-note">
+                    Bu arayüz <strong>Safari için optimize edilmiştir</strong>. Diğer tarayıcılarda AR &amp; Quick Look tam çalışmayabilir.
+                </div>
+            </div>
         </header>
-        
-        <div id="loading" class="loading">
-            <div class="spinner"></div>
-            <p>Modeller yükleniyor...</p>
+
+        <div id="browserWarning" class="browser-warning">
+            <strong>Safari dışı bir tarayıcı kullanıyorsunuz.</strong>
+            Bu sayfa .usdz modellerini <em>Safari</em> üzerinde Quick Look / AR ile göstermek için tasarlanmıştır.
+            Lütfen iOS veya macOS’te Safari kullanarak tekrar deneyin.
         </div>
-        
-        <div id="errorState" class="error-state" style="display: none;"></div>
-        
-        <div id="modelsContainer" class="models-grid"></div>
-        
-        <div id="emptyState" class="empty-state" style="display: none;">
-            <h2>📭 Henüz model yok</h2>
-            <p>iOS uygulamanızdan model yükleyerek başlayın</p>
-        </div>
+
+        <main>
+            <section class="panel">
+                <div class="panel-header">
+                    <div class="panel-header-left">
+                        <h2>Modeller</h2>
+                        <p>Supabase’teki .usdz dosyaları otomatik olarak listelenir.</p>
+                    </div>
+                    <div class="panel-header-right">
+                        <div class="chip">
+                            Bucket: <strong id="bucketLabel">—</strong>
+                        </div>
+                        <div id="statusText" class="status-text loading">
+                            Modeller yükleniyor…
+                        </div>
+                    </div>
+                </div>
+
+                <div id="modelsGrid" class="grid">
+                    <!-- Kartlar JS ile doldurulacak -->
+                </div>
+
+                <div id="emptyState" class="empty-state" style="display:none;">
+                    Henüz listelenecek .usdz modeli bulunamadı.
+                    <br />
+                    Supabase’te ilgili bucket/klasöre .usdz uzantılı dosya eklediğinizde burada görünecektir.
+                </div>
+            </section>
+
+            <footer>
+                <div>
+                    <strong>İpucu:</strong> iPhone / iPad’de Safari ile açtığınızda, model butonuna bastığınızda Quick Look penceresi açılır.
+                </div>
+                <div>
+                    .usdz dosyalarının bulunduğu bucket’in <strong>public</strong> olduğundan veya uygun erişim izni verdiğinizden emin olun.
+                </div>
+            </footer>
+        </main>
     </div>
-    
-    <script>
-        // Supabase yapılandırması
-        const SUPABASE_URL = 'https://zdswozydhmrnvebjtzbk.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpkc3dvenlkaG1ybnZlYmp0emJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwNDYzMDEsImV4cCI6MjA3ODYyMjMwMX0.7aflnUieBEoW36T1F05WylPFNyDSKIt9UnQ0hGKI2_E';
-        const BUCKET_NAME = 'cupscanner';
-        
-        let models = [];
-        
-        // Model-viewer'ın yüklenmesini bekle
-        async function waitForModelViewer() {
-            if (!customElements.get('model-viewer')) {
-                console.log('model-viewer bekleniyor...');
-                try {
-                    await customElements.whenDefined('model-viewer');
-                    console.log('model-viewer yüklendi');
-                } catch (error) {
-                    console.error('model-viewer yüklenemedi:', error);
-                }
-            } else {
-                console.log('model-viewer zaten yüklü');
-            }
+
+    <!-- Kart şablonu -->
+    <template id="modelCardTemplate">
+        <article class="model-card">
+            <div class="model-card-header">
+                <div class="model-title"></div>
+                <div class="model-meta-badge">USDZ • AR</div>
+            </div>
+            <div class="model-thumb">
+                <div class="thumb-art">
+                    <div class="thumb-ring"></div>
+                    <div class="thumb-cup"></div>
+                    <div class="thumb-base"></div>
+                    <div class="thumb-chip">
+                        3D <span>Preview</span>
+                    </div>
+                </div>
+            </div>
+            <div class="model-card-footer">
+                <div class="model-meta-text">
+                    Safari &middot; Quick Look
+                </div>
+                <!-- rel="ar" Safari Quick Look için önemli -->
+                <a class="btn-ar ar-link" rel="ar" href="#">
+                    <span class="icon">AR</span>
+                    <span>Safari’de Aç</span>
+                </a>
+            </div>
+        </article>
+    </template>
+
+    <!-- Supabase + logic -->
+    <script type="module">
+        // 🔧 BURAYI KENDİ PROJENE GÖRE DOLDUR
+        const SUPABASE_URL = "https://YOUR_PROJECT_ID.supabase.co";
+        const SUPABASE_ANON_KEY = "YOUR_ANON_KEY";
+        const BUCKET_NAME = "models";         // Örn: "models"
+        const FOLDER = "usdz";                // Örn: "usdz" veya "" (root ise boş bırak)
+
+        document.getElementById("bucketLabel").textContent = BUCKET_NAME || "—";
+
+        // Safari kontrolü (çok kaba ama iş görür)
+        function detectSafari() {
+            const ua = navigator.userAgent;
+            const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
+            return isSafari;
         }
-        
-        // Sayfa yüklendiğinde modelleri getir
-        window.addEventListener('DOMContentLoaded', async () => {
-            // Önce model-viewer'ın yüklenmesini bekle
-            await waitForModelViewer();
-            // Sonra modelleri yükle
-            await loadModels();
-        });
-        
-        // Supabase Storage'dan modelleri yükle
+
+        if (!detectSafari()) {
+            document.getElementById("browserWarning").style.display = "block";
+        }
+
+        import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const statusText = document.getElementById("statusText");
+        const gridEl = document.getElementById("modelsGrid");
+        const emptyStateEl = document.getElementById("emptyState");
+        const cardTemplate = document.getElementById("modelCardTemplate");
+
         async function loadModels() {
-            const loading = document.getElementById('loading');
-            const container = document.getElementById('modelsContainer');
-            const emptyState = document.getElementById('emptyState');
-            const errorState = document.getElementById('errorState');
-            
-            loading.style.display = 'block';
-            container.innerHTML = '';
-            errorState.style.display = 'none';
-            
             try {
-                // Supabase Storage list endpoint (POST + JSON body)
-                const listURL = `${SUPABASE_URL}/storage/v1/object/list/${BUCKET_NAME}`;
-                
-                console.log('Modeller yükleniyor...', listURL);
-                
-                const response = await fetch(listURL, {
-                    method: 'POST',
-                    headers: {
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        prefix: '',      // kök dizin
+                statusText.textContent = "Modeller yükleniyor…";
+                statusText.classList.add("loading");
+
+                const path = FOLDER && FOLDER.trim().length > 0 ? FOLDER : "";
+
+                const { data, error } = await supabase
+                    .storage
+                    .from(BUCKET_NAME)
+                    .list(path, {
                         limit: 100,
-                        offset: 0,
-                        sortBy: { column: 'name', order: 'asc' }
-                    })
-                });
-                
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`HTTP ${response.status}: ${errorText}`);
-                }
-                
-                let files = await response.json();
-                
-                // Bazı client'larda { objects: [...] } şeklinde gelebilir, o yüzden kontrol edelim
-                if (files && typeof files === 'object' && !Array.isArray(files)) {
-                    files = files.objects || [];
-                }
-                
-                if (!files || files.length === 0) {
-                    emptyState.style.display = 'block';
-                    loading.style.display = 'none';
+                        sortBy: { column: "name", order: "asc" }
+                    });
+
+                if (error) {
+                    console.error("Supabase list error:", error);
+                    statusText.textContent = "Modeller yüklenirken hata oluştu.";
+                    statusText.classList.remove("loading");
+                    statusText.style.color = "#fca5a5";
                     return;
                 }
-                
-                emptyState.style.display = 'none';
-                loading.style.display = 'none';
-                
-                // Her dosya için model kartı oluştur
-                for (const file of files) {
-                    const fileName = file.name || file.path || '';
-                    const filePath = file.path || file.name || '';
-                    
-                    // Sadece 3D model dosyalarını göster
-                    if (!fileName.toLowerCase().match(/\.(usdz|glb|gltf)$/i)) {
-                        continue;
-                    }
-                    
-                    const actualFileName = filePath.split('/').pop() || fileName;
-                    const publicURL = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/${filePath || actualFileName}`;
-                    const viewURL = `view.html?id=${encodeURIComponent(actualFileName)}&url=${encodeURIComponent(publicURL)}`;
-                    const isUSDZ = actualFileName.toLowerCase().endsWith('.usdz');
-                    
-                    // Model kartı oluştur
-                    await createModelCard(container, {
-                        fileName: actualFileName,
-                        publicURL,
-                        viewURL,
-                        isUSDZ,
-                        createdAt: file.created_at || file.updated_at
-                    });
+
+                const usdzFiles = (data || []).filter(item =>
+                    item.name.toLowerCase().endsWith(".usdz")
+                );
+
+                gridEl.innerHTML = "";
+
+                if (usdzFiles.length === 0) {
+                    statusText.textContent = "Gösterilecek model bulunamadı.";
+                    statusText.classList.remove("loading");
+                    emptyStateEl.style.display = "block";
+                    return;
                 }
-                
-            } catch (error) {
-                console.error('Model yükleme hatası:', error);
-                loading.style.display = 'none';
-                errorState.textContent = `Hata: ${error.message}`;
-                errorState.style.display = 'block';
+
+                emptyStateEl.style.display = "none";
+                statusText.textContent = `${usdzFiles.length} model bulundu`;
+                statusText.classList.remove("loading");
+
+                for (const file of usdzFiles) {
+                    const fullPath = path ? `${path}/${file.name}` : file.name;
+
+                    const { data: publicData } = supabase
+                        .storage
+                        .from(BUCKET_NAME)
+                        .getPublicUrl(fullPath);
+
+                    const publicUrl = publicData?.publicUrl;
+                    if (!publicUrl) continue;
+
+                    const card = cardTemplate.content.firstElementChild.cloneNode(true);
+
+                    const titleEl = card.querySelector(".model-title");
+                    titleEl.textContent = file.name.replace(/\.usdz$/i, "");
+
+                    const linkEl = card.querySelector(".ar-link");
+                    linkEl.href = publicUrl;
+
+                    gridEl.appendChild(card);
+                }
+            } catch (e) {
+                console.error("Unexpected error:", e);
+                statusText.textContent = "Beklenmeyen bir hata oluştu.";
+                statusText.classList.remove("loading");
+                statusText.style.color = "#fca5a5";
             }
         }
-        
-        // Model kartı oluştur
-        async function createModelCard(container, model) {
-            const card = document.createElement('div');
-            card.className = 'model-card';
-            card.onclick = () => window.location.href = model.viewURL;
-            
-            // USDZ'yi direkt model-viewer'da göster (convert işlemi yok)
-            const modelSrc = model.publicURL;
-            
-            console.log('Model kartı oluşturuluyor:', {
-                fileName: model.fileName,
-                publicURL: modelSrc,
-                isUSDZ: model.isUSDZ
-            });
-            
-            // Model-viewer custom element'inin yüklenmesini bekle
-            if (!customElements.get('model-viewer')) {
-                console.log('model-viewer bekleniyor...');
-                await customElements.whenDefined('model-viewer');
-                console.log('model-viewer yüklendi');
-            }
-            
-            // Tüm formatlar için model-viewer kullan (USDZ ve GLB/GLTF)
-            card.innerHTML = `
-                <div class="model-preview">
-                    <model-viewer
-                        alt="${escapeHtml(model.fileName)}"
-                        camera-controls
-                        auto-rotate
-                        interaction-policy="allow-when-focused"
-                        style="width: 100%; height: 100%;"
-                        loading="lazy"
-                        exposure="1.0"
-                        shadow-intensity="1"
-                        ${model.isUSDZ ? 'ar ar-modes="webxr scene-viewer quick-look" ar-scale="auto" ar-placement="floor"' : ''}>
-                        <div slot="poster" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2em;">
-                            Model Yükleniyor...
-                        </div>
-                    </model-viewer>
-                </div>
-                <div class="model-info">
-                    <div class="model-name">${escapeHtml(model.fileName.replace(/\.(usdz|glb|gltf)$/i, ''))}</div>
-                    <div class="model-date">${formatDate(model.createdAt)}</div>
-                    <button class="btn" onclick="event.stopPropagation(); window.location.href='${model.viewURL}'">
-                        Detaylı Görüntüle
-                    </button>
-                </div>
-            `;
-            
-            container.appendChild(card);
-            
-            // Model-viewer elementini al ve src'yi ayarla
-            const modelViewer = card.querySelector('model-viewer');
-            if (modelViewer) {
-                // src'yi manuel olarak ayarla (innerHTML'de src kullanmak bazen çalışmıyor)
-                modelViewer.src = modelSrc;
-                console.log('model-viewer elementi bulundu, src ayarlandı:', modelSrc);
-                
-                // Model yüklendiğinde
-                modelViewer.addEventListener('load', () => {
-                    console.log('✅ Model yüklendi:', model.fileName);
-                });
-                
-                // Model yükleme hatası
-                modelViewer.addEventListener('error', (e) => {
-                    console.error('❌ Model yükleme hatası:', model.fileName, e);
-                    console.error('Model URL:', modelSrc);
-                    console.error('Model-viewer src:', modelViewer.src);
-                    
-                    // Hata durumunda poster'ı göster
-                    const poster = modelViewer.querySelector('[slot="poster"]');
-                    if (poster) {
-                        poster.style.display = 'flex';
-                        poster.innerHTML = `
-                            <div style="text-align: center;">
-                                <div style="font-size: 2em; margin-bottom: 10px;">⚠️</div>
-                                <div>Model yüklenemedi</div>
-                                <div style="font-size: 0.8em; margin-top: 10px; opacity: 0.8;">Detaylı görüntülemek için tıklayın</div>
-                            </div>
-                        `;
-                    }
-                });
-                
-                // Model yüklenmeye başladığında
-                modelViewer.addEventListener('model-load', () => {
-                    console.log('🔄 Model yüklenmeye başladı:', model.fileName);
-                });
-                
-                // Model-viewer'ın src attribute'unu tekrar kontrol et
-                setTimeout(() => {
-                    if (modelViewer.src !== modelSrc) {
-                        console.warn('⚠️ Model-viewer src eşleşmiyor, tekrar ayarlanıyor!');
-                        console.warn('Beklenen:', modelSrc);
-                        console.warn('Gerçek:', modelViewer.src);
-                        // Manuel olarak src'yi ayarla
-                        modelViewer.setAttribute('src', modelSrc);
-                        modelViewer.src = modelSrc;
-                    } else {
-                        console.log('✅ Model-viewer src doğru:', modelViewer.src);
-                    }
-                }, 200);
-            } else {
-                console.error('❌ model-viewer elementi bulunamadı!');
-            }
-        }
-        
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-        
-        function formatDate(dateString) {
-            if (!dateString) return 'Tarih bilgisi yok';
-            const date = new Date(dateString);
-            return date.toLocaleDateString('tr-TR', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        }
+
+        loadModels();
     </script>
 </body>
 </html>
